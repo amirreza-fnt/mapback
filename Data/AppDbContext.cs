@@ -19,6 +19,9 @@ public class AppDbContext : DbContext
     public DbSet<SelectedLocation> SelectedLocations { get; set; }
     public DbSet<Payment> Payments { get; set; }
     public DbSet<UserLoginSession> UserLoginSessions { get; set; }
+    
+    // ✅ اضافه شدن DbSet جدید برای ذخیره تاریخچه بازدید/مکان‌های ساده
+    public DbSet<LocationView> LocationViews { get; set; }
 
     /// <summary>
     /// پیکربندی مدل‌ها
@@ -121,6 +124,28 @@ public class AppDbContext : DbContext
                   .HasForeignKey(e => e.UserId)
                   .OnDelete(DeleteBehavior.Cascade);
         });
+
+        // ✅ پیکربندی مدل LocationView (جدید)
+        modelBuilder.Entity<LocationView>(entity =>
+{
+    // کلید مرکب به جای Id
+    entity.HasKey(e => new { e.UserId, e.LocationCode, e.CreatedAt });
+
+    entity.HasIndex(e => e.UserId);
+    entity.HasIndex(e => e.LocationCode);
+
+    entity.Property(e => e.LocationCode)
+        .IsRequired()
+        .HasMaxLength(50);
+
+    entity.Property(e => e.CreatedAt)
+        .IsRequired();
+
+    entity.HasOne<User>()
+          .WithMany()
+          .HasForeignKey(e => e.UserId)
+          .OnDelete(DeleteBehavior.Cascade);
+});
     }
 
     /// <summary>

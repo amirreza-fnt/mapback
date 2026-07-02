@@ -157,3 +157,4 @@ C:\wwwroot\sabzevar\apiweb-payonmap.sabzevar.ir\obj\Debug\net8.0\refint\backendM
 C:\wwwroot\sabzevar\apiweb-payonmap.sabzevar.ir\obj\Debug\net8.0\backendMap.pdb
 C:\wwwroot\sabzevar\apiweb-payonmap.sabzevar.ir\obj\Debug\net8.0\backendMap.genruntimeconfig.cache
 C:\wwwroot\sabzevar\apiweb-payonmap.sabzevar.ir\obj\Debug\net8.0\ref\backendMap.dll
+C:\wwwroot\sabzevar\apiweb-payonmap.sabzevar.ir\obj\Debug\net8.0\backendMap.sourcelink.json

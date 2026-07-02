@@ -30,8 +30,6 @@ public class AuthService : IAuthService
         {
             var user = await FindOrCreateUserAsync(ssoUserInfo);
 
-            // ✅ TokenService خودش RefreshToken را در DB ذخیره می‌کنه
-            // ❌ نباید اینجا دوباره ذخیره کنیم
             var tokens = await _tokenService.GenerateTokensAsync(user);
 
             _logger.LogInformation("User {UserId} logged in successfully", user.Id);
@@ -87,17 +85,26 @@ public class AuthService : IAuthService
 
         if (existingUser != null)
         {
+            // ✅ آپدیت اطلاعات کاربر با داده‌های جدید SSO
             existingUser.LastLoginAt = DateTime.UtcNow;
             existingUser.Name = ssoUserInfo.Name ?? existingUser.Name;
             existingUser.Phone = ssoUserInfo.Phone ?? existingUser.Phone;
             existingUser.Email = ssoUserInfo.Email ?? existingUser.Email;
             existingUser.Avatar = ssoUserInfo.Avatar ?? existingUser.Avatar;
+            
+            // ✅ فیلدهای جدید از SSO
+            existingUser.FirstName = ssoUserInfo.FirstName ?? existingUser.FirstName;
+            existingUser.LastName = ssoUserInfo.LastName ?? existingUser.LastName;
+            existingUser.MelliCode = ssoUserInfo.MelliCode ?? existingUser.MelliCode;
+            existingUser.Address = ssoUserInfo.Address ?? existingUser.Address;
+            existingUser.IsManager = ssoUserInfo.IsManager;
 
             await _unitOfWork.Users.UpdateAsync(existingUser);
             await _unitOfWork.SaveChangesAsync();
             return existingUser;
         }
 
+        // ✅ ایجاد کاربر جدید با تمام اطلاعات SSO
         var newUser = new User
         {
             Id = Guid.NewGuid(),
@@ -106,6 +113,11 @@ public class AuthService : IAuthService
             Phone = ssoUserInfo.Phone ?? "",
             Email = ssoUserInfo.Email ?? "",
             Avatar = ssoUserInfo.Avatar ?? "",
+            FirstName = ssoUserInfo.FirstName,
+            LastName = ssoUserInfo.LastName,
+            MelliCode = ssoUserInfo.MelliCode,
+            Address = ssoUserInfo.Address,
+            IsManager = ssoUserInfo.IsManager,
             CreatedAt = DateTime.UtcNow,
             LastLoginAt = DateTime.UtcNow,
             IsActive = true

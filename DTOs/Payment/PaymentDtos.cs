@@ -13,6 +13,7 @@ public class CreatePaymentRequest
     public string? PaymentId { get; set; }
     public long Amount { get; set; }
     public string? Description { get; set; }
+    public string? ChargeType { get; set; }
 }
 
 /// <summary>

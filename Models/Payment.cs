@@ -3,6 +3,13 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace PayOnMap.API.Models;
 
+public enum ChargeType
+{
+    Unknown = 0,
+    Nosazi = 1,   // عوارض نوسازی و عمران
+    Pasmand = 2   // عوارض پسماند
+}
+
 /// <summary>
 /// مدل پرداخت - هر پرداخت مربوط به یک عوارض (نوسازی یا پسماند) است
 /// </summary>
@@ -33,6 +40,11 @@ public class Payment
     /// </summary>
     [MaxLength(200)]
     public string? Title { get; set; }
+
+    /// <summary>
+    /// نوع عوارض (نوسازی یا پسماند) - برای ارسال به سرویس شهرداری
+    /// </summary>
+    public ChargeType ChargeType { get; set; } = ChargeType.Unknown;
 
     /// <summary>
     /// شناسه قبض
@@ -85,6 +97,11 @@ public class Payment
     public int? PayGateway { get; set; }
 
     /// <summary>
+    /// آیا اطلاعات این پرداخت به سرویس شهرداری ارسال شده؟
+    /// </summary>
+    public bool NotifiedToMunicipality { get; set; } = false;
+
+    /// <summary>
     /// تاریخ ایجاد سفارش
     /// </summary>
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -105,28 +122,9 @@ public class Payment
 /// </summary>
 public enum PaymentStatus
 {
-    /// <summary>
-    /// در انتظار پرداخت
-    /// </summary>
     Pending = 0,
-
-    /// <summary>
-    /// پرداخت موفق
-    /// </summary>
     Success = 1,
-
-    /// <summary>
-    /// پرداخت ناموفق
-    /// </summary>
     Failed = 2,
-
-    /// <summary>
-    /// منقضی شده
-    /// </summary>
     Expired = 3,
-
-    /// <summary>
-    /// لغو شده
-    /// </summary>
     Cancelled = 4
 }

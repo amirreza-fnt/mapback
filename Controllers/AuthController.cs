@@ -242,13 +242,19 @@ public class AuthController : ControllerBase
                 sabzevarUser.FirstName, sabzevarUser.LastName, sabzevarUser.UserID);
 
             var ssoUserInfo = new SSOUserInfo
-            {
-                SSOUserId = sabzevarUser.UserID ?? Guid.NewGuid().ToString(),
-                Name = $"{sabzevarUser.FirstName} {sabzevarUser.LastName}".Trim(),
-                Phone = sabzevarUser.Mobile ?? sabzevarUser.LoggedMobile ?? "",
-                Email = "",
-                Avatar = ""
-            };
+{
+    SSOUserId = sabzevarUser.UserID ?? Guid.NewGuid().ToString(),
+    Name = $"{sabzevarUser.FirstName} {sabzevarUser.LastName}".Trim(),
+    Phone = sabzevarUser.Mobile ?? sabzevarUser.LoggedMobile ?? "",
+    Email = "",
+    Avatar = "",
+    // ✅ فیلدهای جدید از SSO
+    FirstName = sabzevarUser.FirstName,
+    LastName = sabzevarUser.LastName,
+    MelliCode = sabzevarUser.MelliCode,
+    Address = sabzevarUser.Address,
+    IsManager = sabzevarUser.IsManager
+};
 
             var result = await _authService.ProcessLoginAsync(ssoUserInfo);
 

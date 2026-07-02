@@ -197,10 +197,15 @@ builder.Services.AddHttpClient("SSOClient", client =>
     policy.WaitAndRetryAsync(3, retryAttempt =>
         TimeSpan.FromSeconds(Math.Pow(2, retryAttempt))));
 
+// 👇 خط جدید رو همینجا اضافه کن
+builder.Services.AddHttpClient<IMunicipalityNotificationService, MunicipalityNotificationService>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(15);
+});
+
 #endregion
 
 #region 7. Rate Limiting
-
 builder.Services.AddRateLimiter(options =>
 {
     options.AddPolicy("AuthRateLimit", context =>
@@ -278,7 +283,6 @@ builder.Services.AddScoped<ISSOService, SSOService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ISessionService, SessionService>();  // فعال شد
-builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
 
 // Repositories
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();

@@ -4,9 +4,11 @@ using PayOnMap.API.Classes;
 using PayOnMap.API.DTOs.Payment;
 using PayOnMap.API.Models;
 using PayOnMap.API.Repositories.Interfaces;
+using PayOnMap.API.Services.Interfaces;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
+using PayOnMap.API.DTOs.Payment;
 
 namespace PayOnMap.API.Controllers;
 
@@ -17,15 +19,18 @@ public class PaymentController : ControllerBase
     private readonly IPaymentRepository _paymentRepository;
     private readonly IConfiguration _configuration;
     private readonly ILogger<PaymentController> _logger;
+    private readonly IMunicipalityNotificationService _municipalityService;
 
     public PaymentController(
         IPaymentRepository paymentRepository,
         IConfiguration configuration,
-        ILogger<PaymentController> logger)
+        ILogger<PaymentController> logger,
+        IMunicipalityNotificationService municipalityService)
     {
         _paymentRepository = paymentRepository;
         _configuration = configuration;
         _logger = logger;
+        _municipalityService = municipalityService;
     }
 
     /// <summary>
@@ -46,7 +51,6 @@ public class PaymentController : ControllerBase
             if (string.IsNullOrWhiteSpace(request.LocationCode))
                 return BadRequest(new { success = false, message = "کد نوسازی الزامی است" });
 
-            // ایجاد شناسه سفارش
             var orderId = Guid.NewGuid();
 
             var payment = new Payment
@@ -60,8 +64,14 @@ public class PaymentController : ControllerBase
                 Amount = request.Amount,
                 Description = request.Description ?? $"پرداخت عوارض ملک {request.LocationCode}",
                 Status = PaymentStatus.Pending,
+                ChargeType = request.ChargeType?.Trim().ToLower() switch
+                {
+                    "nosazi" => ChargeType.Nosazi,
+                    "pasmand" => ChargeType.Pasmand,
+                    _ => ChargeType.Unknown
+                },
                 CreatedAt = DateTime.UtcNow,
-                ExpiredAt = DateTime.UtcNow.AddMinutes(30) // 30 دقیقه اعتبار
+                ExpiredAt = DateTime.UtcNow.AddMinutes(30)
             };
 
             await _paymentRepository.CreateAsync(payment);
@@ -100,7 +110,7 @@ public class PaymentController : ControllerBase
     {
         try
         {
-            var appIdString = Guid.Parse(_configuration["PaymentService:AppId"] ?? 
+            var appIdString = Guid.Parse(_configuration["PaymentService:AppId"] ??
                 throw new InvalidOperationException("AppId not configured"));
 
             var payment = await _paymentRepository.GetByIdAsync(orderId);
@@ -131,79 +141,112 @@ public class PaymentController : ControllerBase
     /// دریافت نتیجه پرداخت از درگاه (POST /Save)
     /// </summary>
     [HttpPost("/Save")]
-    [AllowAnonymous]
-    public async Task<IActionResult> Save()
+[AllowAnonymous]
+public async Task<IActionResult> Save()
+{
+    try
     {
-        try
+        string data;
+        using (var reader = new StreamReader(Request.Body, Encoding.UTF8))
         {
-            string data;
-            using (var reader = new StreamReader(Request.Body, Encoding.UTF8))
-            {
-                data = await reader.ReadToEndAsync();
-            }
-
-            if (string.IsNullOrEmpty(data))
-                return Ok(0);
-
-            var appIdString = Guid.Parse(_configuration["PaymentService:AppId"] ?? 
-                throw new InvalidOperationException("AppId not configured"));
-            var secKeyString = _configuration["PaymentService:SecurityKey"] ?? 
-                throw new InvalidOperationException("SecurityKey not configured");
-
-            var decodeB64Data = Security.Base64Decode(data);
-            var deserialData = JsonSerializer.Deserialize<PostEncryptedInfoStruct>(decodeB64Data);
-
-            if (deserialData != null && (DateTime.UtcNow - deserialData.DateCreatedUTC) <= TimeSpan.FromMinutes(10))
-            {
-                var secClass = new SecuritySymmetricClass(secKeyString, deserialData.IvKey, 
-                    SecuritySymmetricClass.AlgorithmEnum.RijndaelAES);
-                var dataDec = secClass.DecryptData(deserialData.DataEncripted);
-
-                if (dataDec != null && dataDec.Length > 0)
-                {
-                    var rawData = Encoding.UTF8.GetString(dataDec);
-                    var paymentData = JsonSerializer.Deserialize<PostPaymentInfoStruct>(rawData);
-
-                    if (paymentData != null &&
-                        paymentData.AppID == appIdString &&
-                        Guid.TryParse(paymentData.OrderID, out Guid orderId))
-                    {
-                        var payment = await _paymentRepository.GetByIdAsync(orderId);
-
-                        if (payment != null && payment.ExpiredAt >= DateTime.UtcNow && payment.Status == PaymentStatus.Pending)
-                        {
-                            // به‌روزرسانی اطلاعات پرداخت
-                            payment.Description = paymentData.Description;
-                            payment.RefrenceCode = paymentData.PayRefrenceCode;
-                            payment.PayGateway = paymentData.PayGateway;
-                            payment.PaidAmount = paymentData.PayPrice;
-                            payment.PaidAt = paymentData.PayTimeUTC;
-                            payment.Status = PaymentStatus.Success;
-
-                            await _paymentRepository.UpdateStatusAsync(
-                                payment.Id,
-                                PaymentStatus.Success,
-                                paymentData.PayPrice,
-                                paymentData.PayRefrenceCode
-                            );
-
-                            _logger.LogInformation("Payment successful: OrderId={OrderId}, RefCode={RefCode}",
-                                orderId, paymentData.PayRefrenceCode);
-
-                            return Ok(paymentData.ServerOrderID);
-                        }
-                    }
-                }
-            }
-
-            return Ok(0);
+            data = await reader.ReadToEndAsync();
         }
-        catch (Exception ex)
+
+        if (string.IsNullOrEmpty(data))
+            return Ok(new ResponseFromAppStruct { ResponseValue = 0 });
+
+        var appIdString = Guid.Parse(_configuration["PaymentService:AppId"] ??
+            throw new InvalidOperationException("AppId not configured"));
+        var secKeyString = _configuration["PaymentService:SecurityKey"] ??
+            throw new InvalidOperationException("SecurityKey not configured");
+
+        var decodeB64Data = Security.Base64Decode(data);
+        var deserialData = JsonSerializer.Deserialize<PostEncryptedInfoStruct>(decodeB64Data);
+
+        if (deserialData == null || (DateTime.UtcNow - deserialData.DateCreatedUTC) > TimeSpan.FromMinutes(10))
+            return Ok(new ResponseFromAppStruct { ResponseValue = 0 });
+
+        var secClass = new SecuritySymmetricClass(secKeyString, deserialData.IvKey,
+            SecuritySymmetricClass.AlgorithmEnum.RijndaelAES);
+        var dataDec = secClass.DecryptData(deserialData.DataEncripted);
+
+        if (dataDec == null || dataDec.Length == 0)
+            return Ok(new ResponseFromAppStruct { ResponseValue = 0 });
+
+        var rawData = Encoding.UTF8.GetString(dataDec);
+        var paymentData = JsonSerializer.Deserialize<PostPaymentInfoStruct>(rawData);
+
+        if (paymentData == null ||
+            paymentData.AppID != appIdString ||
+            !Guid.TryParse(paymentData.OrderID, out Guid orderId))
+            return Ok(new ResponseFromAppStruct { ResponseValue = 0 });
+
+        var payment = await _paymentRepository.GetByIdWithUserAsync(orderId);
+
+        if (payment == null || payment.ExpiredAt < DateTime.UtcNow || payment.Status != PaymentStatus.Pending)
+            return Ok(new ResponseFromAppStruct { ResponseValue = 0 });
+
+        // ✅ اطلاعات پرداخت رو روی آبجکت ست می‌کنیم (هنوز DB آپدیت نمیشه)
+        payment.Description = paymentData.Description;
+        payment.RefrenceCode = paymentData.PayRefrenceCode;
+        payment.PayGateway = paymentData.PayGateway;
+        payment.PaidAmount = paymentData.PayPrice;
+        payment.PaidAt = paymentData.PayTimeUTC;
+        payment.Status = PaymentStatus.Success;
+
+        // ✅ مرحله ۱: اول شهرداری رو خبر می‌کنیم
+        bool municipalityNotified = false;
+        if (payment.User != null)
         {
-            _logger.LogError(ex, "Error in Save endpoint");
-            return Ok(0);
+            municipalityNotified = await _municipalityService.NotifyPaymentAsync(payment, payment.User);
+            
+            if (!municipalityNotified)
+            {
+                // شهرداری تایید نکرد - به بانک هم تایید نمیدیم
+                _logger.LogWarning(
+                    "Municipality rejected payment. OrderId={OrderId}, RefCode={RefCode}",
+                    orderId, paymentData.PayRefrenceCode);
+                return Ok(new ResponseFromAppStruct { ResponseValue = 0 });
+            }
         }
+        else
+        {
+            _logger.LogWarning(
+                "Payment.User is null, skipping municipality notification. PaymentId={PaymentId}",
+                payment.Id);
+            // اگر یوزر نبود تصمیم بگیر - فعلا ادامه میدیم
+        }
+
+        // ✅ مرحله ۲: شهرداری تایید کرد، حالا DB رو آپدیت می‌کنیم
+        await _paymentRepository.UpdateStatusAsync(
+            payment.Id,
+            PaymentStatus.Success,
+            paymentData.PayPrice,
+            paymentData.PayRefrenceCode
+        );
+
+        await _paymentRepository.SetNotifiedToMunicipalityAsync(payment.Id, municipalityNotified);
+
+        _logger.LogInformation(
+            "Payment successful and municipality notified: OrderId={OrderId}, RefCode={RefCode}",
+            orderId, paymentData.PayRefrenceCode);
+
+        // ✅ مرحله ۳: به بانک تایید میدیم + SuccessUrl میدیم که تایمر و ریدایرکت کار کنه
+        var frontendBaseUrl = _configuration["Frontend:BaseUrl"] ?? "https://your-frontend.com";
+
+        return Ok(new ResponseFromAppStruct
+        {
+            ResponseValue = paymentData.ServerOrderID,
+            SuccessUrl = $"{frontendBaseUrl}/payment/success?orderId={orderId}&ref={paymentData.PayRefrenceCode}",
+            ErrorUrl = $"{frontendBaseUrl}/payment/error?orderId={orderId}"
+        });
     }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error in Save endpoint");
+        return Ok(new ResponseFromAppStruct { ResponseValue = 0 });
+    }
+}
 
     /// <summary>
     /// دریافت تاریخچه پرداخت‌های کاربر (نیاز به احراز هویت)

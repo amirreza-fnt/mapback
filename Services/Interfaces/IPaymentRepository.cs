@@ -36,4 +36,7 @@ public interface IPaymentRepository
     /// دریافت تعداد کل پرداخت‌های کاربر
     /// </summary>
     Task<int> GetUserPaymentsCountAsync(Guid userId);
+
+    Task<Payment?> GetByIdWithUserAsync(Guid id);
+    Task<bool> SetNotifiedToMunicipalityAsync(Guid id, bool notified);
 }
