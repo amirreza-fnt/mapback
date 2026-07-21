@@ -95,7 +95,6 @@ public class AppDbContext : DbContext
         {
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => e.SessionId).IsUnique();
-            entity.HasIndex(e => e.AccessToken).IsUnique();
             entity.HasIndex(e => e.UserId);
 
             entity.Property(e => e.SessionId)
