@@ -29,7 +29,7 @@ public class TokenService : ITokenService
         _logger = logger;
     }
 
-    public string GenerateAccessToken(User user, HashSet<string>? permissions = null)
+    public string GenerateAccessToken(User user, List<Claim>? additionalClaims = null)
     {
         var secretKey = _configuration["Jwt:SecretKey"]
             ?? "K8s7Hd9fJ3mN2pQ5rT6vW7xY8zA1bC2dE3fG4hI5jK6lL7mM8nN9oO0pP1qQ2rR3";
@@ -46,13 +46,8 @@ public class TokenService : ITokenService
             new("IsActive", user.IsActive.ToString()),
         };
 
-        if (permissions != null)
-        {
-            foreach (var permission in permissions)
-            {
-                claims.Add(new Claim(CustomClaimTypes.Permission, permission));
-            }
-        }
+        if (additionalClaims != null)
+            claims.AddRange(additionalClaims);
 
         var token = new JwtSecurityToken(
             issuer: _configuration["Jwt:Issuer"] ?? "PayOnMap.API",
@@ -74,31 +69,56 @@ public class TokenService : ITokenService
         return Convert.ToBase64String(randomBytes);
     }
 
-    private async Task<HashSet<string>> GetUserPermissionCodesAsync(Guid userId)
+    private async Task<(HashSet<string> Permissions, HashSet<string> Roles)> GetUserClaimsAsync(Guid userId)
     {
         try
         {
-            return await _context.AuthUserGroups
+            var roles = await _context.AuthUserGroups
+                .AsNoTracking()
+                .Where(ug => ug.UserId == userId)
+                .SelectMany(ug => ug.Group.GroupRoles)
+                .Select(gr => gr.Role.Name)
+                .Distinct()
+                .ToListAsync();
+
+            var permissions = await _context.AuthUserGroups
                 .AsNoTracking()
                 .Where(ug => ug.UserId == userId)
                 .SelectMany(ug => ug.Group.GroupRoles)
                 .SelectMany(gr => gr.Role.RolePermissions)
                 .Select(rp => rp.Permission.Code)
                 .Distinct()
-                .ToListAsync()
-                .ContinueWith(t => t.Result.ToHashSet());
+                .ToListAsync();
+
+            return (permissions.ToHashSet(), roles.ToHashSet());
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to load permissions for user {UserId}", userId);
-            return new HashSet<string>();
+            _logger.LogWarning(ex, "Failed to load claims for user {UserId}", userId);
+            return (new HashSet<string>(), new HashSet<string>());
         }
     }
 
     public async Task<TokenResult> GenerateTokensAsync(User user)
     {
-        var permissions = await GetUserPermissionCodesAsync(user.Id);
-        var accessToken = GenerateAccessToken(user, permissions);
+        var (permissions, roles) = await GetUserClaimsAsync(user.Id);
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new(ClaimTypes.Name, user.Name ?? ""),
+            new(ClaimTypes.MobilePhone, user.Phone ?? ""),
+            new(ClaimTypes.Email, user.Email ?? ""),
+            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+            new("IsActive", user.IsActive.ToString()),
+        };
+
+        foreach (var permission in permissions)
+            claims.Add(new Claim(CustomClaimTypes.Permission, permission));
+
+        foreach (var role in roles)
+            claims.Add(new Claim(CustomClaimTypes.Role, role));
+
+        var accessToken = GenerateAccessToken(user, claims);
 
         await _lock.WaitAsync();
         try

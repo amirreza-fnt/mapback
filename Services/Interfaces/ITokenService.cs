@@ -1,5 +1,6 @@
 using PayOnMap.API.Models;
 using System.Collections.Generic;
+using System.Security.Claims;
 
 namespace PayOnMap.API.Services.Interfaces;
 
@@ -8,7 +9,7 @@ public interface ITokenService
     /// <summary>
     /// تولید Access Token
     /// </summary>
-    string GenerateAccessToken(User user, HashSet<string>? permissions = null);
+    string GenerateAccessToken(User user, List<Claim>? additionalClaims = null);
     
     /// <summary>
     /// تولید Refresh Token

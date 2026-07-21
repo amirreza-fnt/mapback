@@ -76,11 +76,17 @@ public class AuthController : ControllerBase
                 .Select(c => c.Value)
                 .ToList();
 
+            var roles = User.Claims
+                .Where(c => c.Type == CustomClaimTypes.Role)
+                .Select(c => c.Value)
+                .ToList();
+
             return Ok(new
             {
                 success = true,
                 data = userInfo,
                 permissions,
+                roles,
                 lastSSO = lastSSOData
             });
         }
