@@ -77,7 +77,7 @@ public class TokenService : ITokenService
                 .AsNoTracking()
                 .Where(ug => ug.UserId == userId)
                 .SelectMany(ug => ug.Group.GroupRoles)
-                .Select(gr => gr.Role.Name)
+                .Select(gr => gr.Role.Code)
                 .Distinct()
                 .ToListAsync();
 
@@ -102,15 +102,7 @@ public class TokenService : ITokenService
     public async Task<TokenResult> GenerateTokensAsync(User user)
     {
         var (permissions, roles) = await GetUserClaimsAsync(user.Id);
-        var claims = new List<Claim>
-        {
-            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new(ClaimTypes.Name, user.Name ?? ""),
-            new(ClaimTypes.MobilePhone, user.Phone ?? ""),
-            new(ClaimTypes.Email, user.Email ?? ""),
-            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-            new("IsActive", user.IsActive.ToString()),
-        };
+        var claims = new List<Claim>();
 
         foreach (var permission in permissions)
             claims.Add(new Claim(CustomClaimTypes.Permission, permission));

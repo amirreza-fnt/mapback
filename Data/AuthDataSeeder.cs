@@ -27,6 +27,7 @@ public static class AuthDataSeeder
         {
             Id = adminRoleId,
             Name = "مدیر سیستم",
+            Code = RoleConstants.Admin,
             Description = "دسترسی کامل به همه بخش‌ها",
             IsSystem = true,
         };
@@ -48,6 +49,7 @@ public static class AuthDataSeeder
         {
             Id = operatorRoleId,
             Name = "اپراتور",
+            Code = RoleConstants.Operator,
             Description = "دسترسی برای ثبت و مدیریت نقاط",
             IsSystem = true,
         };
@@ -78,6 +80,7 @@ public static class AuthDataSeeder
         {
             Id = viewerRoleId,
             Name = "بیننده",
+            Code = RoleConstants.Viewer,
             Description = "فقط دسترسی مشاهده",
             IsSystem = true,
         };
