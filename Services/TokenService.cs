@@ -29,7 +29,7 @@ public class TokenService : ITokenService
         _logger = logger;
     }
 
-    public string GenerateAccessToken(User user)
+    public string GenerateAccessToken(User user, HashSet<string>? permissions = null)
     {
         var secretKey = _configuration["Jwt:SecretKey"]
             ?? "K8s7Hd9fJ3mN2pQ5rT6vW7xY8zA1bC2dE3fG4hI5jK6lL7mM8nN9oO0pP1qQ2rR3";
@@ -46,10 +46,12 @@ public class TokenService : ITokenService
             new("IsActive", user.IsActive.ToString()),
         };
 
-        var permissions = GetUserPermissionCodes(user.Id);
-        foreach (var permission in permissions)
+        if (permissions != null)
         {
-            claims.Add(new Claim(CustomClaimTypes.Permission, permission));
+            foreach (var permission in permissions)
+            {
+                claims.Add(new Claim(CustomClaimTypes.Permission, permission));
+            }
         }
 
         var token = new JwtSecurityToken(
@@ -63,24 +65,6 @@ public class TokenService : ITokenService
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
-    private HashSet<string> GetUserPermissionCodes(Guid userId)
-    {
-        try
-        {
-            return _context.AuthUserGroups
-                .Where(ug => ug.UserId == userId)
-                .SelectMany(ug => ug.Group.GroupRoles)
-                .SelectMany(gr => gr.Role.RolePermissions)
-                .Select(rp => rp.Permission.Code)
-                .Distinct()
-                .ToHashSet();
-        }
-        catch
-        {
-            return new HashSet<string>();
-        }
-    }
-
     // ✅ اصلاح اصلی: استفاده از RandomNumberGenerator به جای Guid + Ticks
     public string GenerateRefreshToken()
     {
@@ -90,9 +74,31 @@ public class TokenService : ITokenService
         return Convert.ToBase64String(randomBytes);
     }
 
+    private async Task<HashSet<string>> GetUserPermissionCodesAsync(Guid userId)
+    {
+        try
+        {
+            return await _context.AuthUserGroups
+                .AsNoTracking()
+                .Where(ug => ug.UserId == userId)
+                .SelectMany(ug => ug.Group.GroupRoles)
+                .SelectMany(gr => gr.Role.RolePermissions)
+                .Select(rp => rp.Permission.Code)
+                .Distinct()
+                .ToListAsync()
+                .ContinueWith(t => t.Result.ToHashSet());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to load permissions for user {UserId}", userId);
+            return new HashSet<string>();
+        }
+    }
+
     public async Task<TokenResult> GenerateTokensAsync(User user)
     {
-        var accessToken = GenerateAccessToken(user);
+        var permissions = await GetUserPermissionCodesAsync(user.Id);
+        var accessToken = GenerateAccessToken(user, permissions);
 
         await _lock.WaitAsync();
         try
