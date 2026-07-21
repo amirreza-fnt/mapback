@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using PayOnMap.API.Models;
+using PayOnMap.API.Models.Auth;
 
 namespace PayOnMap.API.Data;
 
@@ -22,6 +23,13 @@ public class AppDbContext : DbContext
     
     // ✅ اضافه شدن DbSet جدید برای ذخیره تاریخچه بازدید/مکان‌های ساده
     public DbSet<LocationView> LocationViews { get; set; }
+
+    public DbSet<AuthGroup> AuthGroups { get; set; }
+    public DbSet<AuthRole> AuthRoles { get; set; }
+    public DbSet<AuthPermission> AuthPermissions { get; set; }
+    public DbSet<AuthUserGroup> AuthUserGroups { get; set; }
+    public DbSet<AuthGroupRole> AuthGroupRoles { get; set; }
+    public DbSet<AuthRolePermission> AuthRolePermissions { get; set; }
 
     /// <summary>
     /// پیکربندی مدل‌ها
@@ -151,6 +159,67 @@ public class AppDbContext : DbContext
     /// <summary>
     /// ذخیره تغییرات با مدیریت خودکار UpdatedAt
     /// </summary>
+        modelBuilder.Entity<AuthGroup>(entity =>
+        {
+            entity.HasIndex(e => e.Name).IsUnique();
+            entity.HasQueryFilter(e => e.IsActive);
+        });
+
+        modelBuilder.Entity<AuthRole>(entity =>
+        {
+            entity.HasIndex(e => e.Name).IsUnique();
+        });
+
+        modelBuilder.Entity<AuthPermission>(entity =>
+        {
+            entity.HasIndex(e => e.Code).IsUnique();
+        });
+
+        modelBuilder.Entity<AuthRolePermission>(entity =>
+        {
+            entity.HasKey(e => new { e.RoleId, e.PermissionId });
+
+            entity.HasOne(e => e.Role)
+                  .WithMany(r => r.RolePermissions)
+                  .HasForeignKey(e => e.RoleId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Permission)
+                  .WithMany(p => p.RolePermissions)
+                  .HasForeignKey(e => e.PermissionId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AuthGroupRole>(entity =>
+        {
+            entity.HasKey(e => new { e.GroupId, e.RoleId });
+
+            entity.HasOne(e => e.Group)
+                  .WithMany(g => g.GroupRoles)
+                  .HasForeignKey(e => e.GroupId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Role)
+                  .WithMany(r => r.GroupRoles)
+                  .HasForeignKey(e => e.RoleId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AuthUserGroup>(entity =>
+        {
+            entity.HasKey(e => new { e.UserId, e.GroupId });
+
+            entity.HasOne(e => e.User)
+                  .WithMany()
+                  .HasForeignKey(e => e.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Group)
+                  .WithMany(g => g.UserGroups)
+                  .HasForeignKey(e => e.GroupId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         var entries = ChangeTracker.Entries()

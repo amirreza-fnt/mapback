@@ -8,6 +8,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using Map.Shared.Auth.Permissions;
 
 namespace PayOnMap.API.Services;
 
@@ -35,15 +36,21 @@ public class TokenService : ITokenService
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-        var claims = new[]
+        var claims = new List<Claim>
         {
-            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new Claim(ClaimTypes.Name, user.Name ?? ""),
-            new Claim(ClaimTypes.MobilePhone, user.Phone ?? ""),
-            new Claim(ClaimTypes.Email, user.Email ?? ""),
-            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-            new Claim("IsActive", user.IsActive.ToString())
+            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new(ClaimTypes.Name, user.Name ?? ""),
+            new(ClaimTypes.MobilePhone, user.Phone ?? ""),
+            new(ClaimTypes.Email, user.Email ?? ""),
+            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+            new("IsActive", user.IsActive.ToString()),
         };
+
+        var permissions = GetUserPermissionCodes(user.Id);
+        foreach (var permission in permissions)
+        {
+            claims.Add(new Claim(CustomClaimTypes.Permission, permission));
+        }
 
         var token = new JwtSecurityToken(
             issuer: _configuration["Jwt:Issuer"] ?? "PayOnMap.API",
@@ -54,6 +61,24 @@ public class TokenService : ITokenService
         );
 
         return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    private HashSet<string> GetUserPermissionCodes(Guid userId)
+    {
+        try
+        {
+            return _context.AuthUserGroups
+                .Where(ug => ug.UserId == userId)
+                .SelectMany(ug => ug.Group.GroupRoles)
+                .SelectMany(gr => gr.Role.RolePermissions)
+                .Select(rp => rp.Permission.Code)
+                .Distinct()
+                .ToHashSet();
+        }
+        catch
+        {
+            return new HashSet<string>();
+        }
     }
 
     // ✅ اصلاح اصلی: استفاده از RandomNumberGenerator به جای Guid + Ticks

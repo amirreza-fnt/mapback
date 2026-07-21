@@ -1,3 +1,4 @@
+using Map.Shared.Auth.Permissions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -70,10 +71,16 @@ public class AuthController : ControllerBase
                 lastSSOData = _lastSSOUserData;
             }
 
+            var permissions = User.Claims
+                .Where(c => c.Type == CustomClaimTypes.Permission)
+                .Select(c => c.Value)
+                .ToList();
+
             return Ok(new
             {
                 success = true,
                 data = userInfo,
+                permissions,
                 lastSSO = lastSSOData
             });
         }

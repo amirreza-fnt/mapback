@@ -1,3 +1,5 @@
+using Map.Shared.Auth.Authorization;
+using Map.Shared.Auth.Permissions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
@@ -168,11 +170,19 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
+builder.Services.AddSingleton<
+    Microsoft.AspNetCore.Authorization.IAuthorizationHandler,
+    PermissionAuthorizationHandler>();
+
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("ActiveUser", policy =>
         policy.RequireAuthenticatedUser()
               .RequireClaim("IsActive", "true"));
+
+    options.AddPolicy("group:manage", policy =>
+        policy.RequireAuthenticatedUser()
+              .RequireClaim(CustomClaimTypes.Permission, "group:manage"));
 });
 
 #endregion
@@ -290,6 +300,7 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
 builder.Services.AddScoped<ILocationRepository, LocationRepository>();
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+builder.Services.AddScoped<IGroupService, GroupService>();
 
 #endregion
 
@@ -365,6 +376,8 @@ using (var scope = app.Services.CreateScope())
         var context = services.GetRequiredService<AppDbContext>();
         await context.Database.EnsureCreatedAsync();
         logger.LogInformation("Database checked/created");
+
+        await AuthDataSeeder.SeedAsync(context, logger);
     }
     catch (Exception ex)
     {
