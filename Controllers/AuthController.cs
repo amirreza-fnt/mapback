@@ -77,7 +77,7 @@ public class AuthController : ControllerBase
                 .ToList();
 
             var roles = User.Claims
-                .Where(c => c.Type == CustomClaimTypes.Role)
+                .Where(c => c.Type == ClaimTypes.Role)
                 .Select(c => c.Value)
                 .ToList();
 
