@@ -110,4 +110,31 @@ public class GroupsController : ControllerBase
 
         return Ok(new { success = true, message = "نقش از گروه حذف شد" });
     }
+
+    [HttpGet("{groupId}/visible-categories")]
+    public async Task<IActionResult> GetVisibleCategories(Guid groupId)
+    {
+        var categoryIds = await _groupService.GetGroupVisibleCategoriesAsync(groupId);
+        return Ok(new { success = true, data = categoryIds });
+    }
+
+    [HttpPost("{groupId}/visible-categories/{categoryId}")]
+    public async Task<IActionResult> AddVisibleCategory(Guid groupId, Guid categoryId)
+    {
+        var result = await _groupService.AddCategoryToGroupAsync(groupId, categoryId);
+        if (!result)
+            return BadRequest(new { success = false, message = "این دسته‌بندی قبلاً اضافه شده" });
+
+        return Ok(new { success = true, message = "دسته‌بندی با موفقیت به گروه اضافه شد" });
+    }
+
+    [HttpDelete("{groupId}/visible-categories/{categoryId}")]
+    public async Task<IActionResult> RemoveVisibleCategory(Guid groupId, Guid categoryId)
+    {
+        var result = await _groupService.RemoveCategoryFromGroupAsync(groupId, categoryId);
+        if (!result)
+            return NotFound(new { success = false, message = "دسته‌بندی در این گروه یافت نشد" });
+
+        return Ok(new { success = true, message = "دسته‌بندی از گروه حذف شد" });
+    }
 }

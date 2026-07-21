@@ -23,4 +23,9 @@ public interface IGroupService
 
     Task<List<PermissionDto>> GetAllPermissionsAsync();
     Task<HashSet<string>> GetUserPermissionsAsync(Guid userId);
+
+    Task<List<Guid>> GetGroupVisibleCategoriesAsync(Guid groupId);
+    Task<bool> AddCategoryToGroupAsync(Guid groupId, Guid categoryId);
+    Task<bool> RemoveCategoryFromGroupAsync(Guid groupId, Guid categoryId);
+    Task<HashSet<Guid>> GetUserVisibleCategoryIdsAsync(Guid userId);
 }

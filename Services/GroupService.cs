@@ -302,4 +302,54 @@ public class GroupService : IGroupService
 
         return permissionCodes.ToHashSet();
     }
+
+    public async Task<List<Guid>> GetGroupVisibleCategoriesAsync(Guid groupId)
+    {
+        return await _context.AuthGroupVisibleCategories
+            .Where(vc => vc.GroupId == groupId)
+            .Select(vc => vc.CategoryId)
+            .ToListAsync();
+    }
+
+    public async Task<bool> AddCategoryToGroupAsync(Guid groupId, Guid categoryId)
+    {
+        var exists = await _context.AuthGroupVisibleCategories
+            .AnyAsync(vc => vc.GroupId == groupId && vc.CategoryId == categoryId);
+
+        if (exists) return false;
+
+        _context.AuthGroupVisibleCategories.Add(new AuthGroupVisibleCategory
+        {
+            GroupId = groupId,
+            CategoryId = categoryId,
+        });
+
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> RemoveCategoryFromGroupAsync(Guid groupId, Guid categoryId)
+    {
+        var vc = await _context.AuthGroupVisibleCategories
+            .FirstOrDefaultAsync(x => x.GroupId == groupId && x.CategoryId == categoryId);
+
+        if (vc == null) return false;
+
+        _context.AuthGroupVisibleCategories.Remove(vc);
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<HashSet<Guid>> GetUserVisibleCategoryIdsAsync(Guid userId)
+    {
+        var ids = await _context.AuthUserGroups
+            .AsNoTracking()
+            .Where(ug => ug.UserId == userId)
+            .SelectMany(ug => ug.Group.VisibleCategories)
+            .Select(vc => vc.CategoryId)
+            .Distinct()
+            .ToListAsync();
+
+        return ids.ToHashSet();
+    }
 }

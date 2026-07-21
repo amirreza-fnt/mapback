@@ -1969,6 +1969,20 @@
             "rid": "win"
           }
         }
+      },
+      "Map.Shared.Auth/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v8.0",
+        "dependencies": {
+          "Microsoft.AspNetCore.Authentication.JwtBearer": "8.0.26",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "8.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Map.Shared.Auth.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Map.Shared.Auth.dll": {}
+        }
       }
     }
   },
@@ -5123,11 +5137,17 @@
         "system.windows.extensions.nuspec",
         "useSharedDesignerContext.txt"
       ]
+    },
+    "Map.Shared.Auth/1.0.0": {
+      "type": "project",
+      "path": "../../Map.Shared.Auth/Map.Shared.Auth.csproj",
+      "msbuildProject": "../../Map.Shared.Auth/Map.Shared.Auth.csproj"
     }
   },
   "projectFileDependencyGroups": {
     "net8.0": [
       "AspNetCoreRateLimit >= 5.0.0",
+      "Map.Shared.Auth >= 1.0.0",
       "Microsoft.AspNetCore.Authentication.JwtBearer >= 8.0.26",
       "Microsoft.AspNetCore.Identity.EntityFrameworkCore >= 8.0.26",
       "Microsoft.EntityFrameworkCore >= 8.0.26",
@@ -5141,31 +5161,34 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\goli\\.nuget\\packages\\": {}
+    "C:\\Users\\Paya_System\\.nuget\\packages\\": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\wwwroot\\sabzevar\\apiweb-payonmap.sabzevar.ir\\backendMap.csproj",
+      "projectUniqueName": "D:\\project\\map\\backend\\mapback\\backendMap.csproj",
       "projectName": "backendMap",
-      "projectPath": "C:\\wwwroot\\sabzevar\\apiweb-payonmap.sabzevar.ir\\backendMap.csproj",
-      "packagesPath": "C:\\Users\\goli\\.nuget\\packages\\",
-      "outputPath": "C:\\wwwroot\\sabzevar\\apiweb-payonmap.sabzevar.ir\\obj\\",
+      "projectPath": "D:\\project\\map\\backend\\mapback\\backendMap.csproj",
+      "packagesPath": "C:\\Users\\Paya_System\\.nuget\\packages\\",
+      "outputPath": "D:\\project\\map\\backend\\mapback\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
-        "C:\\Users\\goli\\AppData\\Roaming\\NuGet\\NuGet.Config"
+        "C:\\Users\\Paya_System\\AppData\\Roaming\\NuGet\\NuGet.Config"
       ],
       "originalTargetFrameworks": [
         "net8.0"
       ],
       "sources": {
-        "https://api.nuget.org/v3/index.json": {},
-        "https://package-mirror.liara.ir/repository/nuget/index.json": {}
+        "https://api.nuget.org/v3/index.json": {}
       },
       "frameworks": {
         "net8.0": {
           "targetAlias": "net8.0",
-          "projectReferences": {}
+          "projectReferences": {
+            "D:\\project\\map\\Map.Shared.Auth\\Map.Shared.Auth.csproj": {
+              "projectPath": "D:\\project\\map\\Map.Shared.Auth\\Map.Shared.Auth.csproj"
+            }
+          }
         }
       },
       "warningProperties": {
@@ -5251,7 +5274,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.422/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.401/PortableRuntimeIdentifierGraph.json"
       }
     }
   }

@@ -25,4 +25,5 @@ public class AuthGroup
 
     public virtual ICollection<AuthUserGroup> UserGroups { get; set; } = new List<AuthUserGroup>();
     public virtual ICollection<AuthGroupRole> GroupRoles { get; set; } = new List<AuthGroupRole>();
+    public virtual ICollection<AuthGroupVisibleCategory> VisibleCategories { get; set; } = new List<AuthGroupVisibleCategory>();
 }

@@ -69,7 +69,7 @@ public class TokenService : ITokenService
         return Convert.ToBase64String(randomBytes);
     }
 
-    private async Task<(HashSet<string> Permissions, HashSet<string> Roles)> GetUserClaimsAsync(Guid userId)
+    private async Task<(HashSet<string> Permissions, HashSet<string> Roles, HashSet<string> VisibleCategories)> GetUserClaimsAsync(Guid userId)
     {
         try
         {
@@ -90,18 +90,26 @@ public class TokenService : ITokenService
                 .Distinct()
                 .ToListAsync();
 
-            return (permissions.ToHashSet(), roles.ToHashSet());
+            var visibleCategories = await _context.AuthUserGroups
+                .AsNoTracking()
+                .Where(ug => ug.UserId == userId)
+                .SelectMany(ug => ug.Group.VisibleCategories)
+                .Select(vc => vc.CategoryId.ToString())
+                .Distinct()
+                .ToListAsync();
+
+            return (permissions.ToHashSet(), roles.ToHashSet(), visibleCategories.ToHashSet());
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to load claims for user {UserId}", userId);
-            return (new HashSet<string>(), new HashSet<string>());
+            return (new HashSet<string>(), new HashSet<string>(), new HashSet<string>());
         }
     }
 
     public async Task<TokenResult> GenerateTokensAsync(User user)
     {
-        var (permissions, roles) = await GetUserClaimsAsync(user.Id);
+        var (permissions, roles, visibleCategories) = await GetUserClaimsAsync(user.Id);
         var claims = new List<Claim>();
 
         foreach (var permission in permissions)
@@ -109,6 +117,9 @@ public class TokenService : ITokenService
 
         foreach (var role in roles)
             claims.Add(new Claim(CustomClaimTypes.Role, role));
+
+        foreach (var catId in visibleCategories)
+            claims.Add(new Claim(CustomClaimTypes.VisibleCategory, catId));
 
         var accessToken = GenerateAccessToken(user, claims);
 

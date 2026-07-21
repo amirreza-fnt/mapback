@@ -30,6 +30,7 @@ public class AppDbContext : DbContext
     public DbSet<AuthUserGroup> AuthUserGroups { get; set; }
     public DbSet<AuthGroupRole> AuthGroupRoles { get; set; }
     public DbSet<AuthRolePermission> AuthRolePermissions { get; set; }
+    public DbSet<AuthGroupVisibleCategory> AuthGroupVisibleCategories { get; set; }
 
     /// <summary>
     /// پیکربندی مدل‌ها
@@ -212,6 +213,16 @@ public class AppDbContext : DbContext
 
             entity.HasOne(e => e.Group)
                   .WithMany(g => g.UserGroups)
+                  .HasForeignKey(e => e.GroupId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AuthGroupVisibleCategory>(entity =>
+        {
+            entity.HasKey(e => new { e.GroupId, e.CategoryId });
+
+            entity.HasOne(e => e.Group)
+                  .WithMany(g => g.VisibleCategories)
                   .HasForeignKey(e => e.GroupId)
                   .OnDelete(DeleteBehavior.Cascade);
         });
