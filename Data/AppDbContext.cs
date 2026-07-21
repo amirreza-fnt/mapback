@@ -20,7 +20,7 @@ public class AppDbContext : DbContext
     public DbSet<SelectedLocation> SelectedLocations { get; set; }
     public DbSet<Payment> Payments { get; set; }
     public DbSet<UserLoginSession> UserLoginSessions { get; set; }
-    
+
     // ✅ اضافه شدن DbSet جدید برای ذخیره تاریخچه بازدید/مکان‌های ساده
     public DbSet<LocationView> LocationViews { get; set; }
 
@@ -64,25 +64,25 @@ public class AppDbContext : DbContext
             entity.HasIndex(e => e.UserId);
             entity.HasIndex(e => e.LocationCode);
             entity.HasIndex(e => new { e.UserId, e.IsDefault });
-            
+
             entity.Property(e => e.LocationCode)
                 .IsRequired()
                 .HasMaxLength(50);
-            
+
             entity.Property(e => e.Address)
                 .IsRequired()
                 .HasMaxLength(500);
-            
+
             entity.Property(e => e.Title)
                 .IsRequired(false)
                 .HasMaxLength(500); // ✅ افزایش به 500
-            
+
             entity.Property(e => e.Latitude)
                 .HasPrecision(10, 8);
-            
+
             entity.Property(e => e.Longitude)
                 .HasPrecision(11, 8);
-            
+
             // رابطه با User
             entity.HasOne(e => e.User)
                   .WithMany(u => u.SelectedLocations)
@@ -97,35 +97,35 @@ public class AppDbContext : DbContext
             entity.HasIndex(e => e.SessionId).IsUnique();
             entity.HasIndex(e => e.AccessToken).IsUnique();
             entity.HasIndex(e => e.UserId);
-            
+
             entity.Property(e => e.SessionId)
                 .IsRequired()
                 .HasMaxLength(255);
-            
+
             entity.Property(e => e.AccessToken)
                 .IsRequired()
                 .HasMaxLength(2000);
-            
+
             entity.Property(e => e.RefreshToken)
                 .IsRequired(false)
                 .HasMaxLength(2000);
-            
+
             entity.Property(e => e.DeviceInfo)
                 .IsRequired(false)
                 .HasMaxLength(500);
-            
+
             entity.Property(e => e.IpAddress)
                 .IsRequired(false)
                 .HasMaxLength(50);
-            
+
             entity.Property(e => e.UserAgent)
                 .IsRequired(false)
                 .HasMaxLength(500);
-            
+
             entity.Property(e => e.UserData)
                 .IsRequired(false)
                 .HasColumnType("nvarchar(max)");
-            
+
             // رابطه با User
             entity.HasOne(e => e.User)
                   .WithMany(u => u.UserLoginSessions)
@@ -135,30 +135,27 @@ public class AppDbContext : DbContext
 
         // ✅ پیکربندی مدل LocationView (جدید)
         modelBuilder.Entity<LocationView>(entity =>
-{
-    // کلید مرکب به جای Id
-    entity.HasKey(e => new { e.UserId, e.LocationCode, e.CreatedAt });
+        {
+            // کلید مرکب به جای Id
+            entity.HasKey(e => new { e.UserId, e.LocationCode, e.CreatedAt });
 
-    entity.HasIndex(e => e.UserId);
-    entity.HasIndex(e => e.LocationCode);
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => e.LocationCode);
 
-    entity.Property(e => e.LocationCode)
-        .IsRequired()
-        .HasMaxLength(50);
+            entity.Property(e => e.LocationCode)
+                .IsRequired()
+                .HasMaxLength(50);
 
-    entity.Property(e => e.CreatedAt)
-        .IsRequired();
+            entity.Property(e => e.CreatedAt)
+                .IsRequired();
 
-    entity.HasOne<User>()
-          .WithMany()
-          .HasForeignKey(e => e.UserId)
-          .OnDelete(DeleteBehavior.Cascade);
-});
-    }
+            entity.HasOne<User>()
+                  .WithMany()
+                  .HasForeignKey(e => e.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
 
-    /// <summary>
-    /// ذخیره تغییرات با مدیریت خودکار UpdatedAt
-    /// </summary>
+        // ✅ پیکربندی مدل‌های Auth
         modelBuilder.Entity<AuthGroup>(entity =>
         {
             entity.HasIndex(e => e.Name).IsUnique();
@@ -219,11 +216,15 @@ public class AppDbContext : DbContext
                   .HasForeignKey(e => e.GroupId)
                   .OnDelete(DeleteBehavior.Cascade);
         });
+    }
 
+    /// <summary>
+    /// ذخیره تغییرات با مدیریت خودکار UpdatedAt
+    /// </summary>
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         var entries = ChangeTracker.Entries()
-            .Where(e => e.Entity is User && 
+            .Where(e => e.Entity is User &&
                        (e.State == EntityState.Added || e.State == EntityState.Modified));
 
         foreach (var entry in entries)
