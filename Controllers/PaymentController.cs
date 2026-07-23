@@ -8,7 +8,6 @@ using PayOnMap.API.Services.Interfaces;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
-using PayOnMap.API.DTOs.Payment;
 
 namespace PayOnMap.API.Controllers;
 
