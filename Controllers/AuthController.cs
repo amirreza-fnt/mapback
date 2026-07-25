@@ -410,6 +410,163 @@ public class AuthController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// شروع فرآیند لاگین با سامانه احراز هویت متمرکز (MOI)
+    /// </summary>
+    [HttpGet("login/moi")]
+    public IActionResult InitiateCentralAuthLogin([FromQuery] string? returnUrl = null)
+    {
+        try
+        {
+            var apiBaseUrl = _configuration["CentralAuth:ApiBaseUrl"] ?? "https://auth.sabzevar.ir:5004";
+            var webBaseUrl = _configuration["CentralAuth:WebBaseUrl"] ?? "https://auth.sabzevar.ir:5006";
+            var callbackPath = _configuration["CentralAuth:CallbackPath"] ?? "/NewSSOCallback";
+            var provider = _configuration["CentralAuth:Provider"] ?? "moi";
+
+            // آدرس callback در مپ
+            var mapBackendUrl = $"{Request.Scheme}://{Request.Host}{callbackPath}";
+            // آدرس relay: MVC بعد از لاگین توکن رو به این آدرس میفرسته
+            var relayUrl = $"{mapBackendUrl}?token=@token@&refresh=@refresh@";
+
+            // URL صفحه لاگین MVC
+            var loginUrl = $"{webBaseUrl}/account/redirect?provider={provider}&returnUrl={Uri.EscapeDataString(relayUrl)}";
+
+            _logger.LogInformation("CentralAuth login initiated, redirecting to: {LoginUrl}", loginUrl);
+
+            return Ok(new
+            {
+                success = true,
+                loginUrl,
+                provider,
+                message = "در حال انتقال به درگاه احراز هویت وزارت کشور"
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error initiating central auth login");
+            return StatusCode(500, new { success = false, message = "خطا در شروع فرآیند ورود: " + ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// دریافت توکن از سامانه احراز هویت متمرکز (callback از MVC)
+    /// </summary>
+    [HttpGet("/NewSSOCallback")]
+    [AllowAnonymous]
+    public async Task<IActionResult> CentralAuthCallback([FromQuery] string? token, [FromQuery] string? refresh = null, [FromQuery] string? error = null)
+    {
+        try
+        {
+            if (!string.IsNullOrEmpty(error))
+            {
+                _logger.LogError("CentralAuth returned error: {Error}", error);
+                return RedirectToClientWithError("central_auth_error", "خطا در احراز هویت");
+            }
+
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                _logger.LogWarning("No token received in CentralAuth callback");
+                return RedirectToClientWithError("no_token", "توکن احراز هویت دریافت نشد");
+            }
+
+            _logger.LogInformation("CentralAuth callback received, token starts with: {TokenPrefix}", token[..Math.Min(50, token.Length)]);
+
+            // اعتبارسنجی JWT سرویس جدید (با SecretKey یکسان)
+            var jwtSecretKey = _configuration["Jwt:SecretKey"] ?? "K8s7Hd9fJ3mN2pQ5rT6vW7xY8zA1bC2dE3fG4hI5jK6lL7mM8nN9oO0pP1qQ2rR3";
+            var tokenHandler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
+
+            try
+            {
+                var principal = tokenHandler.ValidateToken(token, new Microsoft.IdentityModel.Tokens.TokenValidationParameters
+                {
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecretKey)),
+                    ValidateIssuer = true,
+                    ValidIssuers = new[] { "ShahrdariCentralAuth", "SSOLoginService", _configuration["Jwt:Issuer"] ?? "PayOnMap.API" },
+                    ValidateAudience = false,
+                    ValidateLifetime = true,
+                    ClockSkew = TimeSpan.FromMinutes(2)
+                }, out _);
+
+                // استخراج اطلاعات کاربر از JWT
+                var melliCode = principal.FindFirst("melliCode")?.Value
+                    ?? principal.FindFirst(ClaimTypes.MobilePhone)?.Value
+                    ?? principal.FindFirst("sub")?.Value ?? "";
+                var name = principal.FindFirst(ClaimTypes.Name)?.Value
+                    ?? principal.FindFirst("name")?.Value ?? "کاربر";
+                var phone = principal.FindFirst(ClaimTypes.MobilePhone)?.Value
+                    ?? principal.FindFirst("phone")?.Value
+                    ?? principal.FindFirst("mobile")?.Value ?? "";
+                var ssoUserId = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                    ?? principal.FindFirst("sub")?.Value ?? melliCode;
+
+                _logger.LogInformation("CentralAuth user extracted: MelliCode={MelliCode}, Name={Name}, Phone={Phone}", melliCode, name, phone);
+
+                if (string.IsNullOrWhiteSpace(melliCode))
+                {
+                    _logger.LogWarning("No melliCode in CentralAuth token");
+                    return RedirectToClientWithError("no_mellicode", "کد ملی در توکن یافت نشد");
+                }
+
+                var ssoUserInfo = new SSOUserInfo
+                {
+                    SSOUserId = $"moi-{melliCode}",
+                    Name = name,
+                    Phone = phone,
+                    Email = "",
+                    Avatar = "",
+                    FirstName = name,
+                    LastName = "",
+                    MelliCode = melliCode,
+                    Address = "",
+                    IsManager = false
+                };
+
+                var result = await _authService.ProcessLoginAsync(ssoUserInfo);
+
+                var loginSession = new UserLoginSession
+                {
+                    SessionId = Guid.NewGuid().ToString(),
+                    UserId = Guid.Parse(result.User.Id),
+                    AccessToken = result.AccessToken,
+                    RefreshToken = result.RefreshToken,
+                    CreatedAt = DateTime.UtcNow,
+                    ExpiresAt = DateTime.UtcNow.AddSeconds(result.ExpiresIn),
+                    IsActive = true,
+                    UserAgent = Request.Headers["User-Agent"].ToString(),
+                    IpAddress = GetClientIP(),
+                    UserData = System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        Id = result.User.Id,
+                        Name = result.User.Name,
+                        Phone = result.User.Phone,
+                        Token = result.AccessToken
+                    })
+                };
+
+                await _sessionService.CreateSessionAsync(loginSession);
+                SetRefreshTokenCookie(result.RefreshToken, 7 * 24 * 60 * 60);
+
+                _logger.LogInformation("CentralAuth login successful for user: {UserId}", result.User.Id);
+
+                var frontendBaseUrl = _configuration["Frontend:BaseUrl"] ?? "https://map.sabzevar.ir:8445/";
+                var callbackUrl = $"{frontendBaseUrl}/auth/callback?token={result.AccessToken}&sessionId={loginSession.SessionId}";
+
+                return Redirect(callbackUrl);
+            }
+            catch (Microsoft.IdentityModel.Tokens.SecurityTokenException ex)
+            {
+                _logger.LogError(ex, "CentralAuth token validation failed");
+                return RedirectToClientWithError("invalid_token", "توکن نامعتبر است");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Critical error in CentralAuthCallback");
+            return RedirectToClientWithError("server_error", "خطای داخلی سرور: " + ex.Message);
+        }
+    }
+
     #region Private Methods
 
     private IActionResult RedirectToClientWithError(string errorCode, string errorMessage)
