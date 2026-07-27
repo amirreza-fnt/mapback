@@ -418,7 +418,7 @@ public class AuthController : ControllerBase
     {
         try
         {
-            var apiBaseUrl = _configuration["CentralAuth:ApiBaseUrl"] ?? "https://apiweb-loginsso.sabzevar.ir:8447";
+            var apiBaseUrl = _configuration["CentralAuth:ApiBaseUrl"] ?? "http://apiweb-loginsso.sabzevar.ir:5006";
             var webBaseUrl = _configuration["CentralAuth:WebBaseUrl"] ?? "http://auth.sabzevar.ir:5002";
             var callbackPath = _configuration["CentralAuth:CallbackPath"] ?? "/NewSSOCallback";
             var provider = _configuration["CentralAuth:Provider"] ?? "moi";
