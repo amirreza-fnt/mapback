@@ -294,6 +294,7 @@ public class AuthController : ControllerBase
             await _sessionService.CreateSessionAsync(loginSession);
 
             SetRefreshTokenCookie(result.RefreshToken, 7 * 24 * 60 * 60);
+            SetAccessTokenCookie(result.AccessToken, 7 * 24 * 60 * 60);
 
             _logger.LogInformation("Login successful for user: {UserId}, SessionId: {SessionId}",
                 result.User.Id, loginSession.SessionId);
@@ -339,8 +340,7 @@ public class AuthController : ControllerBase
                 return Unauthorized(new { success = false, message = "Refresh Token نامعتبر است" });
 
             SetRefreshTokenCookie(result.RefreshToken, 7 * 24 * 60 * 60);
-
-            return Ok(new
+            SetAccessTokenCookie(result.AccessToken, 7 * 24 * 60 * 60);
             {
                 success = true,
                 accessToken = result.AccessToken,
@@ -418,7 +418,7 @@ public class AuthController : ControllerBase
     {
         try
         {
-            var apiBaseUrl = _configuration["CentralAuth:ApiBaseUrl"] ?? "http://apiweb-loginsso.sabzevar.ir:5006";
+            var apiBaseUrl = _configuration["CentralAuth:ApiBaseUrl"] ?? "http://apiweb-loginsso.sabzevar.ir:5005";
             var webBaseUrl = _configuration["CentralAuth:WebBaseUrl"] ?? "http://auth.sabzevar.ir:5002";
             var callbackPath = _configuration["CentralAuth:CallbackPath"] ?? "/NewSSOCallback";
             var provider = _configuration["CentralAuth:Provider"] ?? "moi";
@@ -546,6 +546,7 @@ public class AuthController : ControllerBase
 
                 await _sessionService.CreateSessionAsync(loginSession);
                 SetRefreshTokenCookie(result.RefreshToken, 7 * 24 * 60 * 60);
+                SetAccessTokenCookie(result.AccessToken, 7 * 24 * 60 * 60);
 
                 _logger.LogInformation("CentralAuth login successful for user: {UserId}", result.User.Id);
 
@@ -608,6 +609,19 @@ public class AuthController : ControllerBase
     private void SetRefreshTokenCookie(string refreshToken, int maxAgeInSeconds)
     {
         Response.Cookies.Append("refreshToken", refreshToken, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.Lax,
+            Expires = DateTime.UtcNow.AddSeconds(maxAgeInSeconds),
+            Path = "/",
+            MaxAge = TimeSpan.FromSeconds(maxAgeInSeconds)
+        });
+    }
+
+    private void SetAccessTokenCookie(string accessToken, int maxAgeInSeconds)
+    {
+        Response.Cookies.Append("accessToken", accessToken, new CookieOptions
         {
             HttpOnly = true,
             Secure = true,
