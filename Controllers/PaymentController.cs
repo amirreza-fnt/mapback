@@ -231,13 +231,14 @@ public async Task<IActionResult> Save()
             orderId, paymentData.PayRefrenceCode);
 
         // ✅ مرحله ۳: به بانک تایید میدیم + SuccessUrl میدیم که تایمر و ریدایرکت کار کنه
-        var frontendBaseUrl = _configuration["Frontend:BaseUrl"] ?? "https://your-frontend.com";
+        var backendBaseUrl = $"{Request.Scheme}://{Request.Host}";
+        var frontendBaseUrl = _configuration["Frontend:BaseUrl"] ?? "https://map.sabzevar.ir:8445";
 
         return Ok(new ResponseFromAppStruct
         {
             ResponseValue = paymentData.ServerOrderID,
-            SuccessUrl = $"{frontendBaseUrl}/payment/success?orderId={orderId}&ref={paymentData.PayRefrenceCode}",
-            ErrorUrl = $"{frontendBaseUrl}/payment/error?orderId={orderId}"
+            SuccessUrl = $"{backendBaseUrl}/payment/success?orderId={orderId}&ref={paymentData.PayRefrenceCode}&redirect={Uri.EscapeDataString(frontendBaseUrl)}",
+            ErrorUrl = $"{backendBaseUrl}/payment/error?orderId={orderId}&redirect={Uri.EscapeDataString(frontendBaseUrl)}"
         });
     }
     catch (Exception ex)
@@ -291,6 +292,40 @@ public async Task<IActionResult> Save()
             _logger.LogError(ex, "Error getting payment history");
             return StatusCode(500, new { success = false, message = "خطا در دریافت تاریخچه پرداخت‌ها" });
         }
+    }
+
+    [HttpGet("/payment/success")]
+    [AllowAnonymous]
+    public IActionResult PaymentSuccess([FromQuery] Guid orderId, [FromQuery] string? refCode, [FromQuery] string redirect)
+    {
+        var accessToken = Request.Cookies["accessToken"];
+        var tokenJson = accessToken != null
+            ? JsonSerializer.Serialize(new { token = accessToken })
+            : "null";
+
+        return Content($@"<!DOCTYPE html>
+<html><body><script>
+var data = {tokenJson};
+if (data && data.token) localStorage.setItem('token', data.token);
+window.location.href = '{redirect}/payment/success?orderId={orderId}&ref={refCode}';
+</script></body></html>", "text/html");
+    }
+
+    [HttpGet("/payment/error")]
+    [AllowAnonymous]
+    public IActionResult PaymentError([FromQuery] Guid orderId, [FromQuery] string redirect)
+    {
+        var accessToken = Request.Cookies["accessToken"];
+        var tokenJson = accessToken != null
+            ? JsonSerializer.Serialize(new { token = accessToken })
+            : "null";
+
+        return Content($@"<!DOCTYPE html>
+<html><body><script>
+var data = {tokenJson};
+if (data && data.token) localStorage.setItem('token', data.token);
+window.location.href = '{redirect}/payment/error?orderId={orderId}';
+</script></body></html>", "text/html");
     }
 
     #region Private Methods
