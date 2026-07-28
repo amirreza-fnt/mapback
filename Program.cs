@@ -264,7 +264,7 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowFrontend", policy =>
     {
         var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins")
-            .Get<string[]>() ?? new[] { "http://localhost:3000", "https://map.sabzevar.ir", "https://map.sabzevar.ir:8445" };
+            .Get<string[]>() ?? new[] { "http://localhost:3000", "https://map.sabzevar.ir", "https://apiweb-payonmap.sabzevar.ir" };
         
         policy.WithOrigins(allowedOrigins)
             .AllowAnyHeader()
