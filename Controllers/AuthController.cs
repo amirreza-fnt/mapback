@@ -341,6 +341,8 @@ public class AuthController : ControllerBase
 
             SetRefreshTokenCookie(result.RefreshToken, 7 * 24 * 60 * 60);
             SetAccessTokenCookie(result.AccessToken, 7 * 24 * 60 * 60);
+
+            return Ok(new
             {
                 success = true,
                 accessToken = result.AccessToken,
