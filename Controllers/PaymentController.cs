@@ -296,7 +296,7 @@ public async Task<IActionResult> Save()
 
     [HttpGet("/payment/success")]
     [AllowAnonymous]
-    public IActionResult PaymentSuccess([FromQuery] Guid orderId, [FromQuery] string? refCode, [FromQuery] string redirect)
+    public IActionResult PaymentSuccess([FromQuery] Guid orderId, [FromQuery(Name = "ref")] string? refCode, [FromQuery] string redirect)
     {
         var accessToken = Request.Cookies["accessToken"];
         var tokenJson = accessToken != null
@@ -304,7 +304,12 @@ public async Task<IActionResult> Save()
             : "null";
 
         return Content($@"<!DOCTYPE html>
-<html><body><script>
+<html dir='rtl' lang='fa'><body style='font-family:Tahoma;text-align:center;padding-top:50px;background:#f5f7fa'>
+<div style='background:white;max-width:400px;margin:auto;padding:30px;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,.1)'>
+<h2 style='color:#059669'>پرداخت با موفقیت انجام شد</h2>
+<p style='color:#666;margin:20px 0'>در حال انتقال به صفحه پرداخت...</p>
+</div>
+<script>
 var data = {tokenJson};
 if (data && data.token) localStorage.setItem('token', data.token);
 window.location.href = '{redirect}/payment/success?orderId={orderId}&ref={refCode}';
