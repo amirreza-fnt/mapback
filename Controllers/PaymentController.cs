@@ -312,8 +312,9 @@ public async Task<IActionResult> Save()
 <script>
 var data = {tokenJson};
 if (data && data.token) localStorage.setItem('token', data.token);
-window.location.href = '{redirect}/payment/success?orderId={orderId}&ref={refCode}';
-</script></body></html>", "text/html");
+var redirectUrl = '{redirect}/payment/success?orderId={orderId}&ref={refCode}';
+window.location.href = redirectUrl;
+</script></body></html>", "text/html", System.Text.Encoding.UTF8);
     }
 
     [HttpGet("/payment/error")]
