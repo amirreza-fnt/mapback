@@ -231,7 +231,7 @@ public async Task<IActionResult> Save()
             orderId, paymentData.PayRefrenceCode);
 
         // ✅ مرحله ۳: به بانک تایید میدیم + SuccessUrl میدیم که تایمر و ریدایرکت کار کنه
-        var backendBaseUrl = $"{Request.Scheme}://{Request.Host}";
+        var backendBaseUrl = _configuration["Backend:BaseUrl"] ?? $"{Request.Scheme}://{Request.Host}";
         var frontendBaseUrl = _configuration["Frontend:BaseUrl"] ?? "https://map.sabzevar.ir:8445";
 
         return Ok(new ResponseFromAppStruct
