@@ -301,7 +301,6 @@ public async Task<IActionResult> Save()
         var redirectUrl = $"{redirect}/payment/success?orderId={orderId}&ref={refCode}";
         return Redirect(redirectUrl);
     }
-    }
 
     [HttpGet("/payment/error")]
     [AllowAnonymous]
