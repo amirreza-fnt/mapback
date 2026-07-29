@@ -311,7 +311,7 @@ public async Task<IActionResult> Save()
 </div>
 <script>
 var data = {tokenJson};
-if (data && data.token) localStorage.setItem('token', data.token);
+try {{ if (data && data.token) localStorage.setItem('token', data.token); }} catch(e) {{}}
 var redirectUrl = '{redirect}/payment/success?orderId={orderId}&ref={refCode}';
 window.location.href = redirectUrl;
 </script></body></html>", "text/html; charset=utf-8");
