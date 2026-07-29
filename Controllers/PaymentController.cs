@@ -298,23 +298,9 @@ public async Task<IActionResult> Save()
     [AllowAnonymous]
     public IActionResult PaymentSuccess([FromQuery] Guid orderId, [FromQuery(Name = "ref")] string? refCode, [FromQuery] string redirect)
     {
-        var accessToken = Request.Cookies["accessToken"];
-        var tokenJson = accessToken != null
-            ? JsonSerializer.Serialize(new { token = accessToken })
-            : "null";
-
-        return Content($@"<!DOCTYPE html>
-<html dir='rtl' lang='fa'><head><meta charset='utf-8'></head><body style='font-family:Tahoma;text-align:center;padding-top:50px;background:#f5f7fa'>
-<div style='background:white;max-width:400px;margin:auto;padding:30px;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,.1)'>
-<h2 style='color:#059669'>پرداخت با موفقیت انجام شد</h2>
-<p style='color:#666;margin:20px 0'>در حال انتقال به صفحه پرداخت...</p>
-</div>
-<script>
-var data = {tokenJson};
-try {{ if (data && data.token) localStorage.setItem('token', data.token); }} catch(e) {{}}
-var redirectUrl = '{redirect}/payment/success?orderId={orderId}&ref={refCode}';
-window.location.href = redirectUrl;
-</script></body></html>", "text/html; charset=utf-8");
+        var redirectUrl = $"{redirect}/payment/success?orderId={orderId}&ref={refCode}";
+        return Redirect(redirectUrl);
+    }
     }
 
     [HttpGet("/payment/error")]
@@ -326,12 +312,7 @@ window.location.href = redirectUrl;
             ? JsonSerializer.Serialize(new { token = accessToken })
             : "null";
 
-        return Content($@"<!DOCTYPE html>
-<html><body><script>
-var data = {tokenJson};
-if (data && data.token) localStorage.setItem('token', data.token);
-window.location.href = '{redirect}/payment/error?orderId={orderId}';
-</script></body></html>", "text/html");
+        return Redirect($"{redirect}/payment/error?orderId={orderId}");
     }
 
     #region Private Methods
